@@ -1,0 +1,223 @@
+// Prisma Schema for TaskFlow Multi-Tenant Backend
+// Database: PostgreSQL
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  org_admin
+  member
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  review
+  done
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum OutboxStatus {
+  pending
+  dispatched
+  failed
+}
+
+// ==========================================
+// MODELS & RELATIONSHIPS
+// ==========================================
+
+/// Users table represents registered users across organizations
+model User {
+  id            String           @id @default(uuid()) @db.Uuid
+  email         String           @unique
+  passwordHash  String           @map("password_hash")
+  name          String
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // Relationships:
+  // CASCADE: When a user account is deleted, their organization memberships and refresh tokens are wiped.
+  memberships   OrgMember[]
+  refreshTokens RefreshToken[]
+  // RESTRICT: Task assignments and comments authored by the user are preserved or deleted cleanly via relations.
+  assignments   TaskAssignment[]
+  comments      Comment[]
+
+  @@index([email], name: "idx_users_email")
+  @@map("users")
+}
+
+/// Organizations represent the multi-tenant isolation boundary
+model Organization {
+  id        String      @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String      @unique
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  // Relationships:
+  // CASCADE: Deleting an organization removes all associated memberships and projects.
+  members   OrgMember[]
+  projects  Project[]
+
+  @@index([slug], name: "idx_organizations_slug")
+  @@map("organizations")
+}
+
+/// OrgMember maps users to organizations with Role-Based Access Control (RBAC)
+model OrgMember {
+  id        String       @id @default(uuid()) @db.Uuid
+  orgId     String       @map("org_id") @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  role      Role         @default(member)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  // Foreign keys with CASCADE decisions:
+  // If an Org or User is removed, the membership association is cleanly removed.
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId], name: "uq_org_user")
+  @@index([userId, orgId], name: "idx_org_members_user_org")
+  @@index([orgId, role], name: "idx_org_members_org_role")
+  @@map("org_members")
+}
+
+/// Refresh tokens with support for revocation, rotation, and logout across all devices
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  familyId   String    @map("family_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  // Foreign key with CASCADE: tokens are dropped if user is removed
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash], name: "idx_refresh_tokens_hash")
+  @@index([userId, revokedAt], name: "idx_refresh_tokens_user_revoked")
+  @@map("refresh_tokens")
+}
+
+/// Projects represent top-level workspaces belonging to a single organization
+model Project {
+  id          String    @id @default(uuid()) @db.Uuid
+  orgId       String    @map("org_id") @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Foreign keys with CASCADE:
+  // If the parent Organization is deleted, all its projects and nested tasks are removed.
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  // Indexes:
+  // Scoped to orgId + deletedAt for fast multi-tenant soft-delete filtering
+  @@index([orgId, deletedAt], name: "idx_projects_org_deleted")
+  @@map("projects")
+}
+
+/// Tasks belong to a specific Project within an Organization
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  title       String
+  description String?
+  status      TaskStatus   @default(todo)
+  priority    TaskPriority @default(medium)
+  dueDate     DateTime?    @map("due_date")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  deletedAt   DateTime?    @map("deleted_at")
+
+  // Foreign keys with CASCADE:
+  // When a project is deleted, its tasks are deleted.
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Child relations: CASCADE when a task is deleted
+  assignments TaskAssignment[]
+  comments    Comment[]
+
+  // Indexes:
+  // 1. Project-scoped soft-delete index for task listing
+  // 2. Status & Priority indexes for filtering
+  // 3. Due date index for date-range queries
+  @@index([projectId, deletedAt], name: "idx_tasks_project_deleted")
+  @@index([projectId, status], name: "idx_tasks_project_status")
+  @@index([projectId, priority], name: "idx_tasks_project_priority")
+  @@index([projectId, dueDate], name: "idx_tasks_project_due_date")
+  @@map("tasks")
+}
+
+/// TaskAssignment maps tasks to assignees within the same organization
+model TaskAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  taskId     String   @map("task_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  // CASCADE: Deleting the task or user removes the assignment record
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId], name: "uq_task_user_assignment")
+  @@index([taskId], name: "idx_task_assignments_task")
+  @@index([userId], name: "idx_task_assignments_user")
+  @@map("task_assignments")
+}
+
+/// Comments posted on tasks by users
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // CASCADE: Deleting the task deletes comments; deleting user cascades their comments
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt], name: "idx_comments_task_created")
+  @@map("comments")
+}
+
+/// Transactional Outbox pattern table for guaranteed job dispatch consistency
+model OutboxJob {
+  id          String       @id @default(uuid()) @db.Uuid
+  jobType     String       @map("job_type")
+  payload     Json
+  status      OutboxStatus @default(pending)
+  retryCount  Int          @default(0) @map("retry_count")
+  error       String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  processedAt DateTime?    @map("processed_at")
+
+  @@index([status, createdAt], name: "idx_outbox_status_created")
+  @@map("outbox_jobs")
+}
