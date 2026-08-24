@@ -7,14 +7,30 @@
 [![Redis](https://img.shields.io/badge/Redis-7-red.svg)](https://redis.io/)
 [![BullMQ](https://img.shields.io/badge/BullMQ-5.41-orange.svg)](https://bullmq.io/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.4-teal.svg)](https://www.prisma.io/)
-[![Tests](https://img.shields.io/badge/Tests-35%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-43%20Passed-brightgreen.svg)]()
+[![API Docs](https://img.shields.io/badge/Swagger%20UI-Dark%20Theme-indigo.svg)](http://localhost:8000/docs)
+[![Health Status](https://img.shields.io/badge/Diagnostics-Live%20Dashboard-emerald.svg)](http://localhost:8000/health)
 
-TaskFlow is a production-grade, multi-tenant project management backend built with Node.js, TypeScript, Express, PostgreSQL, Redis, and BullMQ. It demonstrates secure organization-level isolation, role-based access control (RBAC), database design with full-text search, resilient background job processing with dead-letter queueing (DLQ), comprehensive automated tests, interactive Swagger UI, and Docker Compose orchestration.
+TaskFlow is a production-grade, multi-tenant project management backend built with Node.js, TypeScript, Express, PostgreSQL, Redis, and BullMQ. It features an interactive modern Developer Console & API sandbox, live system diagnostics telemetry, custom dark-themed Swagger UI, secure organization-level isolation, role-based access control (RBAC), database design with full-text search, resilient background job processing with dead-letter queueing (DLQ), comprehensive automated tests, and Docker Compose orchestration.
 
 ---
 
 ## 🌟 Key Highlights & Features
 
+- 🌐 **Interactive Developer Console & Sandbox (`/`)**:
+  - Live API testing playground with token simulator, headers, request editor, and copyable cURL snippets.
+  - Real-time system telemetry gauges for PostgreSQL, Redis, memory heap, and uptime.
+  - Interactive route directory and resource catalog.
+- 🩺 **Deep Health Diagnostics Dashboard (`/health`)**:
+  - Real-time latency tracking for PostgreSQL query pings and Redis round-trip checks.
+  - BullMQ queue health and worker job counters.
+  - Visual status dashboard with auto-refresh for web browsers and structured JSON for automated uptime monitors.
+- 📖 **Modern Dark-Themed Swagger UI (`/docs`)**:
+  - Custom dark stylesheet with Inter typography, vibrant HTTP method badges, and interactive request executor.
+- 🎨 **Native Vector Branding & Zero-404 Favicons**:
+  - High-res vector SVG icons served at `/favicon.svg`, `/favicon.ico`, and `/logo.svg`.
+- 🖥️ **Modern CLI Experience**:
+  - ANSI formatted startup banner and colorized HTTP request logging with latency thresholds.
 - 🏢 **Multi-Tenant Isolation**: Strict organization scoping on every query. Attempts to access cross-tenant resources return `403 Forbidden` without leaking resource existence.
 - 🔐 **Authentication & RBAC**:
   - `bcrypt` password hashing with cost factor $\ge 12$.
@@ -40,8 +56,7 @@ TaskFlow is a production-grade, multi-tenant project management backend built wi
   - **★ Deduplication**: 5-second assignment debounce window.
   - **★ Rate Limiter**: 50 emails / minute global queue rate limiter.
   - Real-time Job Status endpoint: `GET /jobs/:id` (`pending`, `active`, `completed`, `failed`).
-- 🧪 **Automated Testing Suite**: 35 unit and integration tests with test DB isolation, queue job verification, and V8 code coverage report.
-- 📚 **Interactive Documentation**: Swagger UI at `/docs`, OpenAPI 3.0 specification (`docs/openapi.yaml`), ready-to-use Postman collection, and Bruno collection.
+- 🧪 **Automated Testing Suite**: 43 unit and integration tests covering multi-tenant isolation, RBAC, background queues, and developer experience.
 
 ---
 

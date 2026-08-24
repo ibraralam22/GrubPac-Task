@@ -4,8 +4,10 @@ info:
   description: Multi-tenant project management backend with PostgreSQL, Redis, BullMQ, and RBAC.
   version: 1.0.0
 servers:
+  - url: http://localhost:8000
+    description: Local Development Server (Default Port 8000)
   - url: http://localhost:3000
-    description: Local Development Server
+    description: Alternative Local Server (Port 3000)
 
 paths:
   /health:

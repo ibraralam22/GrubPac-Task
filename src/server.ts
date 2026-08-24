@@ -1,21 +1,11 @@
 import { createApp } from './app';
 import { env } from './config/env';
-import { errorHandler } from './middlewares/errorHandler';
-import { NotFoundError } from './errors/AppError';
+import { printStartupBanner } from './utils/banner';
 
 const app = createApp();
 
-// Fallback 404 handler for unknown routes
-app.use((req, _res, next) => {
-  next(new NotFoundError(`Route ${req.method} ${req.originalUrl} not found`, 'ROUTE_NOT_FOUND'));
-});
-
-// Centralized error handler
-app.use(errorHandler);
-
 const server = app.listen(env.PORT, () => {
-  console.log(`🚀 TaskFlow API Server running at http://localhost:${env.PORT} in ${env.NODE_ENV} mode`);
-  console.log(`🩺 Health check accessible at http://localhost:${env.PORT}/health`);
+  printStartupBanner(env.PORT, env.NODE_ENV);
 });
 
 // Graceful shutdown handling
