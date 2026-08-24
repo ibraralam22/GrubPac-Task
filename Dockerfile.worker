@@ -34,4 +34,4 @@ RUN npx prisma generate
 # Copy compiled JavaScript from builder
 COPY --from=builder /app/dist ./dist
 
-CMD ["node", "dist/src/worker.js"]
+CMD ["node", "dist/worker.js"]

@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
     "dev:worker": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/worker.ts",
-    "build": "rimraf dist && tsc",
-    "start": "node dist/src/server.js",
-    "start:worker": "node dist/src/worker.js",
+    "build": "prisma generate && rimraf dist && tsc",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
